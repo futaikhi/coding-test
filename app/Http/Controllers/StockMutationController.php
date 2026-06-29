@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use OwenIt\Auditing\Models\Audit;
 
 class StockMutationController extends Controller
 {
@@ -42,10 +43,17 @@ class StockMutationController extends Controller
             $query->orderBy($sortBy, $sortOrder);
         }
 
+        $auditLogs = Audit::with('user')
+            ->where('auditable_type', StockMutation::class)
+            ->latest()
+            ->limit(10) // Batasi 10 histori terbaru saja agar halaman ringan
+            ->get();
+
         return Inertia::render('StockMutations/Index', [
             'mutations' => $query->get(),
             'materials' => Material::all(), // Untuk opsi filter dropdown
-            'filters' => $request->only(['search', 'type', 'material_id', 'sort_by', 'sort_order'])
+            'filters' => $request->only(['search', 'type', 'material_id', 'sort_by', 'sort_order']),
+            'audit_logs' => $auditLogs,
         ]);
     }
 

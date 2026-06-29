@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use OwenIt\Auditing\Contracts\Auditable;
+use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class Category extends Model
+class Category extends Model implements Auditable
 {
-    use HasUuids, SoftDeletes;
+    use HasUuids, SoftDeletes, AuditableTrait;
 
     protected $fillable = ['name', 'is_active', 'attributes'];
 

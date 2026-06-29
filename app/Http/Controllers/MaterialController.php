@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use OwenIt\Auditing\Models\Audit;
 
 class MaterialController extends Controller
 {
@@ -41,10 +42,17 @@ class MaterialController extends Controller
             $query->orderBy($sortBy, $sortOrder);
         }
 
+        $auditLogs = Audit::with('user')
+            ->where('auditable_type', Material::class)
+            ->latest()
+            ->limit(10) // Batasi 10 histori terbaru saja agar halaman ringan
+            ->get();
+
         return Inertia::render('Materials/Index', [
             'materials' => $query->get(),
             'categories' => Category::where('is_active', true)->get(), // Untuk opsi filter dropdown
-            'filters' => $request->only(['search', 'category_id', 'sort_by', 'sort_order']) // Lempar balik ke Vue untuk state input
+            'filters' => $request->only(['search', 'category_id', 'sort_by', 'sort_order']), // Lempar balik ke Vue untuk state input
+            'audit_logs' => $auditLogs,
         ]);
     }
 

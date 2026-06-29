@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MaterialController;
@@ -51,6 +52,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Endpoint API untuk remote search Select2 (Mengembalikan format { value, label })
     Route::get('/api/categories-search', [CategoryController::class, 'searchApi']);
     Route::get('/api/materials-search', [MaterialController::class, 'searchApi']);
+
+    Route::get('/audit-logs', [AuditLogController::class, 'index']);
 });
 
 require __DIR__ . '/settings.php';

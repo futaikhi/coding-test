@@ -9,6 +9,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
+use OwenIt\Auditing\Models\Audit;
 
 class ExportCategoriesJob implements ShouldQueue
 {
@@ -34,7 +35,7 @@ class ExportCategoriesJob implements ShouldQueue
 
         $categories = $query->latest()->get();
         $fileName = 'exports/categories_export_' . $this->userId . '.csv';
-        
+
         if (!Storage::disk('public')->exists('exports')) {
             Storage::disk('public')->makeDirectory('exports');
         }
@@ -43,7 +44,7 @@ class ExportCategoriesJob implements ShouldQueue
         $file = fopen($filePath, 'w');
 
         // UTF-8 BOM untuk Excel
-        fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+        fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
         // Header: Memisahkan field JSON attributes menjadi kolom tersendiri
         fputcsv($file, ['Nama Kategori', 'Status Aktif', 'Lokasi Rak (JSON)', 'Suhu Ruangan (JSON)']);
@@ -58,5 +59,18 @@ class ExportCategoriesJob implements ShouldQueue
         }
 
         fclose($file);
+
+        Audit::create([
+            'user_type' => 'App\Models\User',
+            'user_id' => $this->userId,
+            'event' => 'exported', // Nama event kustom
+            'auditable_type' => 'App\Models\Category', // Kolom target modul
+            'auditable_id' => (string) \Illuminate\Support\Str::uuid(),
+            'old_values' => [],
+            'new_values' => ['info' => 'Mengekspor data ke berkas CSV/Excel berfilter.'],
+            'url' => '/categories',
+            'ip_address' => request()->ip() ?? '127.0.0.1',
+            'user_agent' => 'Queue Worker'
+        ]);
     }
 }

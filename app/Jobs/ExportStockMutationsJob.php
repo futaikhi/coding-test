@@ -9,6 +9,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
+use OwenIt\Auditing\Models\Audit;
 
 class ExportStockMutationsJob implements ShouldQueue
 {
@@ -77,5 +78,18 @@ class ExportStockMutationsJob implements ShouldQueue
         }
 
         fclose($file);
+
+        Audit::create([
+            'user_type' => 'App\Models\User',
+            'user_id' => $this->userId,
+            'event' => 'exported', // Nama event kustom
+            'auditable_type' => 'App\Models\StockMutation', // Kolom target modul
+            'auditable_id' => (string) \Illuminate\Support\Str::uuid(),
+            'old_values' => [],
+            'new_values' => ['info' => 'Mengekspor data ke berkas CSV/Excel berfilter.'],
+            'url' => '/stock-mutations',
+            'ip_address' => request()->ip() ?? '127.0.0.1',
+            'user_agent' => 'Queue Worker'
+        ]);
     }
 }

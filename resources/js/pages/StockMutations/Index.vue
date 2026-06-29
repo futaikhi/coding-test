@@ -4,6 +4,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import Multiselect from '@vueform/multiselect';
 import '@vueform/multiselect/themes/default.css';
 import axios from 'axios';
+import { parseAuditLog } from '@/utils/auditParser';
 
 defineOptions({
     layout: {
@@ -21,6 +22,7 @@ const props = defineProps<{
         sort_by?: string;
         sort_order?: string;
     }
+    audit_logs: any[];
 }>();
 
 const search = ref(props.filters.search || '');
@@ -141,6 +143,12 @@ const startImportProcessing = () => {
 const closeImportWizard = () => {
     importStep.value = 'idle';
     progressData.value = { status: 'idle', current: 0, total: 0, percentage: 0, errors: [] };
+};
+
+const formatAuditDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('id-ID', {
+        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
 };
 </script>
 
@@ -367,6 +375,54 @@ const closeImportWizard = () => {
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+    <div
+        class="mt-8 rounded-xl border border-gray-200/60 bg-white p-5 dark:border-gray-800/60 dark:bg-gray-900 shadow-sm">
+        <div class="flex items-center gap-2 mb-4">
+            <span class="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white">Jejak Audit Aktivitas
+                Modul</h3>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
+            <table class="min-w-full divide-y divide-gray-100 dark:divide-gray-800 text-left text-xs">
+                <thead class="bg-gray-50/70 dark:bg-gray-800/40 text-gray-400 font-bold uppercase tracking-wider">
+                    <tr>
+                        <th class="px-4 py-2.5 w-36">Date</th>
+                        <th class="px-4 py-2.5 w-44">User / Actor</th>
+                        <th class="px-4 py-2.5 w-28">Action</th>
+                        <th class="px-4 py-2.5">Note (Apa Yang Terjadi)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800 text-gray-600 dark:text-gray-400 font-mono">
+                    <tr v-for="log in audit_logs" :key="log.id"
+                        class="hover:bg-gray-50/40 dark:hover:bg-gray-800/10 transition">
+                        <td class="px-4 py-3 whitespace-nowrap text-gray-400">{{ formatAuditDate(log.created_at) }}</td>
+                        <td
+                            class="px-4 py-3 whitespace-nowrap font-sans font-semibold text-gray-800 dark:text-gray-200">
+                            {{ log.user ? log.user.name : 'System Worker' }}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide" :class="{
+                                'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400': log.event === 'created' || log.event === 'imported',
+                                'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400': log.event === 'updated',
+                                'bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400': log.event === 'exported',
+                                'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400': log.event === 'deleted',
+                            }">
+                                {{ log.event }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 font-sans text-gray-500 dark:text-gray-400 leading-relaxed">
+                            {{ parseAuditLog(log) }}
+                        </td>
+                    </tr>
+                    <tr v-if="audit_logs?.length === 0">
+                        <td colspan="4" class="px-4 py-6 text-center text-gray-400 font-sans">Belum ada jejak aktivitas
+                            transaksi pada modul ini.</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </template>

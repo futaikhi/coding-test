@@ -12,6 +12,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use OwenIt\Auditing\Models\Audit;
 
 class ImportStockMutationsJob implements ShouldQueue
 {
@@ -32,7 +33,8 @@ class ImportStockMutationsJob implements ShouldQueue
     {
         $path = Storage::disk('local')->path($this->filePath);
         $totalRows = count(file($path)) - 1;
-        if ($totalRows <= 0) return;
+        if ($totalRows <= 0)
+            return;
 
         $file = fopen($path, 'r');
         $headers = fgetcsv($file); // Skip header baris 1
@@ -45,15 +47,15 @@ class ImportStockMutationsJob implements ShouldQueue
 
             try {
                 // Konversi index mapping (Aman dari bug index 0)
-                $matIdentifierIdx = isset($this->mapping['material_identifier']) ? (int)$this->mapping['material_identifier'] : null;
-                $typeIdx          = isset($this->mapping['type']) ? (int)$this->mapping['type'] : null;
-                $quantityIdx      = isset($this->mapping['quantity']) ? (int)$this->mapping['quantity'] : null;
-                $noteIdx          = isset($this->mapping['note']) ? (int)$this->mapping['note'] : null;
+                $matIdentifierIdx = isset($this->mapping['material_identifier']) ? (int) $this->mapping['material_identifier'] : null;
+                $typeIdx = isset($this->mapping['type']) ? (int) $this->mapping['type'] : null;
+                $quantityIdx = isset($this->mapping['quantity']) ? (int) $this->mapping['quantity'] : null;
+                $noteIdx = isset($this->mapping['note']) ? (int) $this->mapping['note'] : null;
 
                 $matIdentifier = ($matIdentifierIdx !== null && isset($row[$matIdentifierIdx])) ? trim($row[$matIdentifierIdx]) : null;
-                $typeStr       = ($typeIdx !== null && isset($row[$typeIdx])) ? strtolower(trim($row[$typeIdx])) : null;
-                $quantityStr   = ($quantityIdx !== null && isset($row[$quantityIdx])) ? trim($row[$quantityIdx]) : null;
-                $note          = ($noteIdx !== null && isset($row[$noteIdx])) ? trim($row[$noteIdx]) : null;
+                $typeStr = ($typeIdx !== null && isset($row[$typeIdx])) ? strtolower(trim($row[$typeIdx])) : null;
+                $quantityStr = ($quantityIdx !== null && isset($row[$quantityIdx])) ? trim($row[$quantityIdx]) : null;
+                $note = ($noteIdx !== null && isset($row[$noteIdx])) ? trim($row[$noteIdx]) : null;
 
                 if (empty($matIdentifier)) {
                     $errors[] = "Baris {$processed}: Identitas Material (Kode/Nama) kosong.";
@@ -62,8 +64,8 @@ class ImportStockMutationsJob implements ShouldQueue
 
                 // 1. CARI MATERIAL BERDASARKAN KODE ATAU NAMA
                 $material = Material::where('code', $matIdentifier)
-                                    ->orWhere('name', 'like', '%' . $matIdentifier . '%')
-                                    ->first();
+                    ->orWhere('name', 'like', '%' . $matIdentifier . '%')
+                    ->first();
 
                 if (!$material) {
                     $errors[] = "Baris {$processed}: Barang dengan kode/nama '{$matIdentifier}' tidak terdaftar.";
@@ -84,7 +86,7 @@ class ImportStockMutationsJob implements ShouldQueue
                 }
 
                 // 3. VALIDASI QUANTITY
-                $quantity = (int)$quantityStr;
+                $quantity = (int) $quantityStr;
                 if ($quantity <= 0) {
                     $errors[] = "Baris {$processed}: Kuantitas volume harus berupa angka bulat positif di atas 0.";
                     continue;
@@ -92,11 +94,11 @@ class ImportStockMutationsJob implements ShouldQueue
 
                 // Rekam transaksi mutasi baru
                 StockMutation::create([
-                    'id'          => (string) Str::uuid(),
+                    'id' => (string) Str::uuid(),
                     'material_id' => $material->id,
-                    'type'        => $finalType,
-                    'quantity'    => $quantity,
-                    'note'        => $note ?: 'Impor Sistem Asinkronus'
+                    'type' => $finalType,
+                    'quantity' => $quantity,
+                    'note' => $note ?: 'Impor Sistem Asinkronus'
                 ]);
 
             } catch (\Exception $e) {
@@ -105,11 +107,11 @@ class ImportStockMutationsJob implements ShouldQueue
 
             // Update cache real-time progress bar
             Cache::put("import_progress_mut_{$this->userId}", [
-                'status'     => 'processing',
-                'current'    => $processed,
-                'total'      => $totalRows,
+                'status' => 'processing',
+                'current' => $processed,
+                'total' => $totalRows,
                 'percentage' => round(($processed / $totalRows) * 100),
-                'errors'     => $errors
+                'errors' => $errors
             ], 600);
         }
 
@@ -117,11 +119,28 @@ class ImportStockMutationsJob implements ShouldQueue
         Storage::disk('local')->delete($this->filePath);
 
         Cache::put("import_progress_mut_{$this->userId}", [
-            'status'     => 'completed',
-            'current'    => $processed,
-            'total'      => $totalRows,
+            'status' => 'completed',
+            'current' => $processed,
+            'total' => $totalRows,
             'percentage' => 100,
-            'errors'     => $errors
+            'errors' => $errors
         ], 600);
+
+        $successCount = $processed - count($errors);
+
+        Audit::create([
+            'user_type' => 'App\Models\User',
+            'user_id' => $this->userId,
+            'event' => 'imported', // Nama event kustom
+            'auditable_type' => 'App\Models\StockMutation',
+            'auditable_id' => (string) \Illuminate\Support\Str::uuid(),
+            'old_values' => [],
+            'new_values' => [
+                'summary' => "Total: {$processed} baris (Sukses: {$successCount}, Gagal: " . count($errors) . ")"
+            ],
+            'url' => '/stock-mutations',
+            'ip_address' => request()->ip() ?? '127.0.0.1',
+            'user_agent' => 'Queue Worker'
+        ]);
     }
 }

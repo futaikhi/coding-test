@@ -11,6 +11,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use OwenIt\Auditing\Models\Audit;
 
 class ImportMaterialsJob implements ShouldQueue
 {
@@ -123,5 +124,22 @@ class ImportMaterialsJob implements ShouldQueue
             'percentage' => 100,
             'errors' => $errors
         ], 600);
+
+        $successCount = $processed - count($errors);
+
+        Audit::create([
+            'user_type' => 'App\Models\User',
+            'user_id' => $this->userId,
+            'event' => 'imported', // Nama event kustom
+            'auditable_type' => 'App\Models\Material',
+            'auditable_id' => (string) \Illuminate\Support\Str::uuid(),
+            'old_values' => [],
+            'new_values' => [
+                'summary' => "Total: {$processed} baris (Sukses: {$successCount}, Gagal: " . count($errors) . ")"
+            ],
+            'url' => '/materials',
+            'ip_address' => request()->ip() ?? '127.0.0.1',
+            'user_agent' => 'Queue Worker'
+        ]);
     }
 }

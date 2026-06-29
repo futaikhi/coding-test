@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { ArrowLeftRight, BookOpen, FolderGit2, Layers, LayoutGrid, Package, User, UserKey } from '@lucide/vue';
+import { ArrowLeftRight, BookOpen, FolderGit2, Layers, LayoutGrid, Package, User, UserKey, History } from '@lucide/vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
@@ -40,6 +40,11 @@ const mainNavItems: NavItem[] = [
         title: 'Stock Mutations',
         href: '/stock-mutations',
         icon: ArrowLeftRight,
+    },
+    {
+        title: 'Audit Logs',
+        href: '/audit-logs',
+        icon: History,
     },
     {
         title: 'Roles',

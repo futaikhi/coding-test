@@ -11,6 +11,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use OwenIt\Auditing\Models\Audit;
 
 class ImportCategoriesJob implements ShouldQueue
 {
@@ -31,7 +32,8 @@ class ImportCategoriesJob implements ShouldQueue
     {
         $path = Storage::disk('local')->path($this->filePath);
         $totalRows = count(file($path)) - 1;
-        if ($totalRows <= 0) return;
+        if ($totalRows <= 0)
+            return;
 
         $file = fopen($path, 'r');
         $headers = fgetcsv($file); // Skip header
@@ -44,10 +46,10 @@ class ImportCategoriesJob implements ShouldQueue
 
             try {
                 // Konversi index mapping secara presisi (Aman untuk indeks 0)
-                $nameIdx = isset($this->mapping['name']) ? (int)$this->mapping['name'] : null;
-                $activeIdx = isset($this->mapping['is_active']) ? (int)$this->mapping['is_active'] : null;
-                $rackIdx = isset($this->mapping['rack']) ? (int)$this->mapping['rack'] : null;
-                $tempIdx = isset($this->mapping['temperature']) ? (int)$this->mapping['temperature'] : null;
+                $nameIdx = isset($this->mapping['name']) ? (int) $this->mapping['name'] : null;
+                $activeIdx = isset($this->mapping['is_active']) ? (int) $this->mapping['is_active'] : null;
+                $rackIdx = isset($this->mapping['rack']) ? (int) $this->mapping['rack'] : null;
+                $tempIdx = isset($this->mapping['temperature']) ? (int) $this->mapping['temperature'] : null;
 
                 $name = ($nameIdx !== null && isset($row[$nameIdx])) ? trim($row[$nameIdx]) : null;
                 $activeStr = ($activeIdx !== null && isset($row[$activeIdx])) ? strtolower(trim($row[$activeIdx])) : 'aktif';
@@ -87,11 +89,11 @@ class ImportCategoriesJob implements ShouldQueue
 
             // Update live progress cache
             Cache::put("import_progress_cat_{$this->userId}", [
-                'status'    => 'processing',
-                'current'   => $processed,
-                'total'     => $totalRows,
-                'percentage'=> round(($processed / $totalRows) * 100),
-                'errors'    => $errors
+                'status' => 'processing',
+                'current' => $processed,
+                'total' => $totalRows,
+                'percentage' => round(($processed / $totalRows) * 100),
+                'errors' => $errors
             ], 600);
         }
 
@@ -99,11 +101,28 @@ class ImportCategoriesJob implements ShouldQueue
         Storage::disk('local')->delete($this->filePath);
 
         Cache::put("import_progress_cat_{$this->userId}", [
-            'status'    => 'completed',
-            'current'   => $processed,
-            'total'     => $totalRows,
-            'percentage'=> 100,
-            'errors'    => $errors
+            'status' => 'completed',
+            'current' => $processed,
+            'total' => $totalRows,
+            'percentage' => 100,
+            'errors' => $errors
         ], 600);
+
+        $successCount = $processed - count($errors);
+
+        Audit::create([
+            'user_type' => 'App\Models\User',
+            'user_id' => $this->userId,
+            'event' => 'imported', // Nama event kustom
+            'auditable_type' => 'App\Models\Category',
+            'auditable_id' => (string) \Illuminate\Support\Str::uuid(),
+            'old_values' => [],
+            'new_values' => [
+                'summary' => "Total: {$processed} baris (Sukses: {$successCount}, Gagal: " . count($errors) . ")"
+            ],
+            'url' => '/categories',
+            'ip_address' => request()->ip() ?? '127.0.0.1',
+            'user_agent' => 'Queue Worker'
+        ]);
     }
 }

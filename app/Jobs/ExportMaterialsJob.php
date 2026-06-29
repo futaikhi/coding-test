@@ -9,6 +9,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
+use OwenIt\Auditing\Models\Audit;
 
 class ExportMaterialsJob implements ShouldQueue
 {
@@ -32,9 +33,9 @@ class ExportMaterialsJob implements ShouldQueue
         // Filter: Search kata kunci
         if (!empty($this->filters['search'])) {
             $search = $this->filters['search'];
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
-                  ->orWhere('code', 'like', '%' . $search . '%');
+                    ->orWhere('code', 'like', '%' . $search . '%');
             });
         }
 
@@ -46,7 +47,7 @@ class ExportMaterialsJob implements ShouldQueue
         // Sorting Kolom Dinamis
         $sortBy = $this->filters['sort_by'] ?? 'created_at';
         $sortOrder = $this->filters['sort_order'] ?? 'desc';
-        
+
         if (in_array($sortBy, ['name', 'code', 'published_at', 'created_at'])) {
             $query->orderBy($sortBy, $sortOrder);
         }
@@ -56,7 +57,7 @@ class ExportMaterialsJob implements ShouldQueue
 
         // 2. Tentukan nama file unik per user agar tidak bentrok di server
         $fileName = 'exports/materials_export_' . $this->userId . '.csv';
-        
+
         if (!Storage::disk('public')->exists('exports')) {
             Storage::disk('public')->makeDirectory('exports');
         }
@@ -65,7 +66,7 @@ class ExportMaterialsJob implements ShouldQueue
         $file = fopen($filePath, 'w');
 
         // Inject UTF-8 BOM untuk Excel Compatibility
-        fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+        fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
         // Tulis Header CSV
         fputcsv($file, ['Kode Material', 'Nama Material', 'Kategori', 'Tanggal Rilis', 'Deskripsi']);
@@ -82,5 +83,18 @@ class ExportMaterialsJob implements ShouldQueue
         }
 
         fclose($file);
+
+        Audit::create([
+            'user_type' => 'App\Models\User',
+            'user_id' => $this->userId,
+            'event' => 'exported', // Nama event kustom
+            'auditable_type' => 'App\Models\Material', // Kolom target modul
+            'auditable_id' => (string) \Illuminate\Support\Str::uuid(),
+            'old_values' => [],
+            'new_values' => ['info' => 'Mengekspor data ke berkas CSV/Excel berfilter.'],
+            'url' => '/materials',
+            'ip_address' => request()->ip() ?? '127.0.0.1',
+            'user_agent' => 'Queue Worker'
+        ]);
     }
 }

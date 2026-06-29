@@ -4,6 +4,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import Multiselect from '@vueform/multiselect';
 import '@vueform/multiselect/themes/default.css';
+import { parseAuditLog } from '@/utils/auditParser';
 
 defineOptions({
     layout: {
@@ -19,7 +20,8 @@ const props = defineProps<{
         category_id?: string;
         sort_by?: string;
         sort_order?: string;
-    }
+    };
+    audit_logs: any[];
 }>();
 
 const isExporting = ref(false);
@@ -180,6 +182,12 @@ const fetchCategories = async (query: string) => {
     const response = await axios.get(`/api/categories-search?q=${query}`);
     return response.data; // Mengembalikan array [{value, label}, ...]
 };
+
+const formatAuditDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('id-ID', {
+        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+};
 </script>
 
 <template>
@@ -284,7 +292,8 @@ const fetchCategories = async (query: string) => {
                     <span class="flex h-2 w-2 rounded-full bg-blue-500 animate-ping"></span>
                     Asynchronous CSV Import Engine
                 </h3>
-                <button @click="closeImportWizard" class="text-xs text-gray-400 hover:text-gray-600 cursor-pointer">Batal & Tutup
+                <button @click="closeImportWizard"
+                    class="text-xs text-gray-400 hover:text-gray-600 cursor-pointer">Batal & Tutup
                     ✕</button>
             </div>
 
@@ -327,7 +336,8 @@ const fetchCategories = async (query: string) => {
                     </div>
                 </div>
 
-                <button @click="startImportProcessing" :disabled="columnMapping.name === '' || columnMapping.category === ''"
+                <button @click="startImportProcessing"
+                    :disabled="columnMapping.name === '' || columnMapping.category === ''"
                     class="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded-lg disabled:opacity-40 cursor-pointer">
                     Mulai Proses Antrean Impor →
                 </button>
@@ -336,7 +346,7 @@ const fetchCategories = async (query: string) => {
             <div v-if="importStep === 'importing'" class="space-y-4">
                 <div class="flex justify-between items-center text-xs font-semibold">
                     <span class="text-gray-500">Memproses: <span class="text-blue-600 font-bold">{{ progressData.current
-                    }}</span> / {{ progressData.total }} baris data</span>
+                            }}</span> / {{ progressData.total }} baris data</span>
                     <span class="text-blue-600">{{ progressData.percentage }}% Selesai</span>
                 </div>
 
@@ -424,6 +434,54 @@ const fetchCategories = async (query: string) => {
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+    <div
+        class="mt-8 rounded-xl border border-gray-200/60 bg-white p-5 dark:border-gray-800/60 dark:bg-gray-900 shadow-sm">
+        <div class="flex items-center gap-2 mb-4">
+            <span class="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white">Jejak Audit Aktivitas
+                Modul</h3>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-800">
+            <table class="min-w-full divide-y divide-gray-100 dark:divide-gray-800 text-left text-xs">
+                <thead class="bg-gray-50/70 dark:bg-gray-800/40 text-gray-400 font-bold uppercase tracking-wider">
+                    <tr>
+                        <th class="px-4 py-2.5 w-36">Date</th>
+                        <th class="px-4 py-2.5 w-44">User / Actor</th>
+                        <th class="px-4 py-2.5 w-28">Action</th>
+                        <th class="px-4 py-2.5">Note (Apa Yang Terjadi)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800 text-gray-600 dark:text-gray-400 font-mono">
+                    <tr v-for="log in audit_logs" :key="log.id"
+                        class="hover:bg-gray-50/40 dark:hover:bg-gray-800/10 transition">
+                        <td class="px-4 py-3 whitespace-nowrap text-gray-400">{{ formatAuditDate(log.created_at) }}</td>
+                        <td
+                            class="px-4 py-3 whitespace-nowrap font-sans font-semibold text-gray-800 dark:text-gray-200">
+                            {{ log.user ? log.user.name : 'System Worker' }}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide" :class="{
+                                'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400': log.event === 'created' || log.event === 'imported',
+                                'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400': log.event === 'updated',
+                                'bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400': log.event === 'exported',
+                                'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400': log.event === 'deleted',
+                            }">
+                                {{ log.event }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 font-sans text-gray-500 dark:text-gray-400 leading-relaxed">
+                            {{ parseAuditLog(log) }}
+                        </td>
+                    </tr>
+                    <tr v-if="audit_logs?.length === 0">
+                        <td colspan="4" class="px-4 py-6 text-center text-gray-400 font-sans">Belum ada jejak aktivitas
+                            transaksi pada modul ini.</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </template>

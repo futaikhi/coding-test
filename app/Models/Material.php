@@ -7,10 +7,12 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use OwenIt\Auditing\Contracts\Auditable;
+use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class Material extends Model
+class Material extends Model implements Auditable
 {
-    use HasUuids, SoftDeletes;
+    use HasUuids, SoftDeletes, AuditableTrait   ;
 
     protected $fillable = ['category_id', 'code', 'name', 'description', 'document_path', 'published_at'];
 

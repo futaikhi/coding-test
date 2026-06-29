@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use OwenIt\Auditing\Models\Audit;
 
 class CategoryController extends Controller
 {
@@ -22,9 +23,16 @@ class CategoryController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
+        $auditLogs = Audit::with('user')
+            ->where('auditable_type', Category::class)
+            ->latest()
+            ->limit(10) // Batasi 10 histori terbaru saja agar halaman ringan
+            ->get();
+
         return Inertia::render('Categories/Index', [
             'categories' => $query->latest()->get(),
-            'filters' => $request->only(['search'])
+            'filters' => $request->only(['search']),
+            'audit_logs' => $auditLogs,
         ]);
     }
 
