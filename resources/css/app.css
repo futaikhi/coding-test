@@ -170,3 +170,37 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* Customisasi tema Multiselect agar terintegrasi dengan Dark Mode & Tailwind Premium */
+.multiselect-premium {
+    --ms-bg: rgb(249 250 251); /* bg-gray-50 */
+    --ms-border-color: rgb(229 231 235); /* border-gray-200 */
+    --ms-radius: 0.5rem; /* rounded-lg */
+    --ms-tag-bg: #2563eb; /* bg-blue-600 */
+    --ms-tag-color: #ffffff;
+    --ms-dropdown-bg: #ffffff;
+}
+
+.dark .multiselect-premium {
+    --ms-bg: rgb(3 7 18); /* bg-gray-950 */
+    --ms-border-color: rgb(31 41 55); /* border-gray-800 */
+    --ms-text-color: #f3f4f6;
+    --ms-dropdown-bg: rgb(17 24 39); /* bg-gray-900 */
+    --ms-option-bg-pointed: rgb(31 41 55);
+    --ms-option-color-pointed: #ffffff;
+}
+
+/* Penyesuaian tema premium untuk VueDatePicker */
+.datepicker-premium .dp__input {
+    background-color: rgb(249 250 251) !important; /* bg-gray-50 */
+    border-color: rgb(229 231 235) !important;     /* border-gray-200 */
+    border-radius: 0.5rem !important;              /* rounded-lg */
+    font-size: 0.875rem !important;                /* text-sm */
+    padding: 0.625rem 2rem !important;
+}
+
+.dark .datepicker-premium .dp__input {
+    background-color: rgb(3 7 18) !important;      /* bg-gray-950 */
+    border-color: rgb(31 41 55) !important;        /* border-gray-800 */
+    color: #f3f4f6 !important;
+}
