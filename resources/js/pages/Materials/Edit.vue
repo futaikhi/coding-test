@@ -42,6 +42,7 @@ const formatForInput = (dateTimeStr: string) => {
 };
 
 const form = useForm({
+    _method: 'PUT',
     category_id: props.material.category_id,
     code: props.material.code,
     name: props.material.name,
@@ -58,16 +59,8 @@ const handleFileUpload = (event: Event) => {
 };
 
 const submit = () => {
-    // TRIK KHUSUS FILE UPLOAD EDIT MODE DI LARAVEL INERTIA:
-    // Gunakan router.post dengan menyuntikkan _method: 'PUT' dalam bentuk FormData objek manual
-    router.post(`/materials/${props.material.id}`, {
-        _method: 'PUT',
-        category_id: form.category_id,
-        code: form.code,
-        name: form.name,
-        description: form.description,
-        published_at: form.published_at,
-        document: form.document
+    form.post(`/materials/${props.material.id}`, {
+        preserveScroll: true
     });
 };
 </script>

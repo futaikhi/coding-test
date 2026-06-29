@@ -36,28 +36,100 @@ const handleAsyncExport = () => {
         sort_by: sortBy.value,
         sort_order: sortOrder.value
     })
-    .then(() => {
-        exportMessage.value = 'Mengekspor data sesuai filter pilihan Anda, mohon tunggu...';
-        
-        // Jalankan polling deteksi berkala setiap 2 detik
-        const checkInterval = setInterval(() => {
-            axios.get('/materials/export/check')
-                .then((res) => {
-                    if (res.data.ready) {
-                        clearInterval(checkInterval);
-                        isExporting.value = false;
-                        exportMessage.value = '';
-                        
-                        // Download file hasil filter kustom
-                        window.location.href = res.data.download_url;
-                    }
-                });
-        }, 2000);
+        .then(() => {
+            exportMessage.value = 'Mengekspor data sesuai filter pilihan Anda, mohon tunggu...';
+
+            // Jalankan polling deteksi berkala setiap 2 detik
+            const checkInterval = setInterval(() => {
+                axios.get('/materials/export/check')
+                    .then((res) => {
+                        if (res.data.ready) {
+                            clearInterval(checkInterval);
+                            isExporting.value = false;
+                            exportMessage.value = '';
+
+                            // Download file hasil filter kustom
+                            window.location.href = res.data.download_url;
+                        }
+                    });
+            }, 2000);
+        })
+        .catch(() => {
+            isExporting.value = false;
+            exportMessage.value = 'Gagal memproses ekspor berfilter.';
+        });
+};
+
+// Definisikan state kendali alur kerja import wizard
+const importStep = ref<'idle' | 'mapping' | 'importing'>('idle');
+const csvHeaders = ref<string[]>([]);
+const tempFilePath = ref('');
+
+// Objek untuk menampung kecocokan mapping pilihan user
+const columnMapping = ref({
+    name: '',
+    category: '',
+    published_at: '',
+    description: ''
+});
+
+// State monitoring real-time live progress bar
+const progressData = ref({
+    status: 'idle',
+    current: 0,
+    total: 0,
+    percentage: 0,
+    errors: [] as string[]
+});
+
+// Fungsi Tahap 1: Upload File CSV & Tangkap Header
+const handleCsvUpload = (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    if (target.files && target.files.length > 0) {
+        const formData = new FormData();
+        formData.append('file', target.files[0]);
+
+        axios.post('/materials/import/upload', formData)
+            .then((res) => {
+                csvHeaders.value = res.data.headers;
+                tempFilePath.value = res.data.file_path;
+                importStep.value = 'mapping'; // Alihkan screen ke fase pilih kolom
+            })
+            .catch(() => alert('File harus berformat .csv murni!'));
+    }
+};
+
+// Fungsi Tahap 2: Eksekusi Queue & Jalankan Live Polling Progress Bar
+const startImportProcessing = () => {
+    importStep.value = 'importing';
+
+    axios.post('/materials/import/process', {
+        file_path: tempFilePath.value,
+        mapping: columnMapping.value
     })
-    .catch(() => {
-        isExporting.value = false;
-        exportMessage.value = 'Gagal memproses ekspor berfilter.';
-    });
+        .then(() => {
+            // Jalankan sistem polling interval deteksi setiap 1 detik
+            const pollInterval = setInterval(() => {
+                axios.get('/materials/import/progress')
+                    .then((res) => {
+                        progressData.value = res.data;
+
+                        // Hentikan polling jika status di backend telah selesai (completed)
+                        if (res.data.status === 'completed') {
+                            clearInterval(pollInterval);
+                            importStep.value = 'idle';
+                            alert('Selamat! Seluruh proses asinkronus import data selesai dimasukkan.');
+                            // Refresh data halaman tabel depan inertia tanpa reload browser
+                            router.reload({ only: ['materials'] });
+                        }
+                    });
+            }, 1000);
+        });
+};
+
+const closeImportWizard = () => {
+    importStep.value = 'idle';
+    progressData.value = { status: 'idle', current: 0, total: 0, percentage: 0, errors: [] };
 };
 
 // Inisialisasi state reactive untuk form filter berdasarkan data filter sebelumnya (preserve state)
@@ -122,6 +194,12 @@ const fetchCategories = async (query: string) => {
                     kategori, dan dokumen PDF lampiran.</p>
             </div>
             <div class="flex items-center gap-3">
+                <label
+                    class="cursor-pointer border border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white text-sm font-semibold py-2.5 px-4 rounded-lg shadow-sm transition">
+                    <span>Import CSV</span>
+                    <input type="file" accept=".csv" class="hidden" @change="handleCsvUpload"
+                        :disabled="importStep !== 'idle'" />
+                </label>
                 <button @click="handleAsyncExport" :disabled="isExporting"
                     class="inline-flex items-center gap-2 border border-emerald-600 dark:border-emerald-500 hover:bg-emerald-600 text-emerald-600 dark:text-emerald-400 hover:text-white text-sm font-semibold py-2.5 px-4 rounded-lg shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
                     <svg v-if="isExporting" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none"
@@ -198,7 +276,85 @@ const fetchCategories = async (query: string) => {
                 </div>
             </div>
         </div>
+        <div v-if="importStep !== 'idle'"
+            class="rounded-xl border-2 border-dashed border-blue-500/40 bg-blue-50/5 p-6 dark:bg-blue-950/5 shadow-sm mb-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3
+                    class="text-sm font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                    <span class="flex h-2 w-2 rounded-full bg-blue-500 animate-ping"></span>
+                    Asynchronous CSV Import Engine
+                </h3>
+                <button @click="closeImportWizard" class="text-xs text-gray-400 hover:text-gray-600 cursor-pointer">Batal & Tutup
+                    ✕</button>
+            </div>
 
+            <div v-if="importStep === 'mapping'" class="space-y-4">
+                <p class="text-xs text-gray-500">Sistem mendeteksi kolom file Anda. Silakan cocokkan field database
+                    (Kiri) dengan Kolom file CSV Anda (Kanan):</p>
+
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Nama Material (*Wajib)</label>
+                        <select v-model="columnMapping.name"
+                            class="w-full text-xs rounded-lg border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-2">
+                            <option value="">-- Pilih Kolom CSV --</option>
+                            <option v-for="(h, idx) in csvHeaders" :key="idx" :value="idx">{{ h }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Nama Kategori (*Wajib)</label>
+                        <select v-model="columnMapping.category"
+                            class="w-full text-xs rounded-lg border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-2">
+                            <option value="">-- Pilih Kolom CSV --</option>
+                            <option v-for="(h, idx) in csvHeaders" :key="idx" :value="idx">{{ h }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Tanggal Rilis</label>
+                        <select v-model="columnMapping.published_at"
+                            class="w-full text-xs rounded-lg border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-2">
+                            <option value="">-- Pilih Kolom CSV --</option>
+                            <option v-for="(h, idx) in csvHeaders" :key="idx" :value="idx">{{ h }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Deskripsi Spesifikasi</label>
+                        <select v-model="columnMapping.description"
+                            class="w-full text-xs rounded-lg border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-2">
+                            <option value="">-- Pilih Kolom CSV --</option>
+                            <option v-for="(h, idx) in csvHeaders" :key="idx" :value="idx">{{ h }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button @click="startImportProcessing" :disabled="columnMapping.name === '' || columnMapping.category === ''"
+                    class="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded-lg disabled:opacity-40 cursor-pointer">
+                    Mulai Proses Antrean Impor →
+                </button>
+            </div>
+
+            <div v-if="importStep === 'importing'" class="space-y-4">
+                <div class="flex justify-between items-center text-xs font-semibold">
+                    <span class="text-gray-500">Memproses: <span class="text-blue-600 font-bold">{{ progressData.current
+                    }}</span> / {{ progressData.total }} baris data</span>
+                    <span class="text-blue-600">{{ progressData.percentage }}% Selesai</span>
+                </div>
+
+                <div class="w-full bg-gray-200 dark:bg-gray-800 h-3 rounded-full overflow-hidden">
+                    <div class="bg-gradient-to-r from-blue-500 to-indigo-600 h-full transition-all duration-300"
+                        :style="{ width: progressData.percentage + '%' }"></div>
+                </div>
+
+                <div v-if="progressData.errors.length > 0"
+                    class="bg-red-50 dark:bg-red-950/20 border border-red-200/40 rounded-lg p-3 max-h-32 overflow-y-auto">
+                    <h5 class="text-xs font-bold text-red-600 mb-1">Peringatan Log Validasi Gagal ({{
+                        progressData.errors.length }}):</h5>
+                    <ul class="text-[11px] list-disc list-inside text-red-500 font-mono space-y-0.5">
+                        <li v-for="(err, idx) in progressData.errors" :key="idx">{{ err }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
         <div
             class="rounded-xl border border-gray-200/80 bg-white dark:border-gray-800/80 dark:bg-gray-900 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">

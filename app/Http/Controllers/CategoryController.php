@@ -2,8 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ExportCategoriesJob;
+use App\Jobs\ImportCategoriesJob;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class CategoryController extends Controller
@@ -97,5 +102,67 @@ class CategoryController extends Controller
                 ];
             })
         );
+    }
+
+    public function triggerExport(Request $request)
+    {
+        $userId = Auth::id();
+        $fileName = 'exports/categories_export_' . $userId . '.csv';
+
+        if (Storage::disk('public')->exists($fileName)) {
+            Storage::disk('public')->delete($fileName);
+        }
+
+        $filters = $request->only(['search']);
+        ExportCategoriesJob::dispatch($filters, $userId);
+
+        return response()->json(['status' => 'success']);
+    }
+
+    public function checkExportStatus()
+    {
+        $userId = Auth::id();
+        $fileName = 'exports/categories_export_' . $userId . '.csv';
+        $fileExists = Storage::disk('public')->exists($fileName);
+
+        return response()->json([
+            'ready' => $fileExists,
+            'download_url' => $fileExists ? asset('storage/' . $fileName) : null
+        ]);
+    }
+
+    public function importUpload(Request $request)
+    {
+        $request->validate(['file' => 'required|file|mimes:csv,txt']);
+        $path = $request->file('file')->store('temp_imports', 'local');
+
+        $file = fopen(Storage::disk('local')->path($path), 'r');
+        $headers = fgetcsv($file);
+        fclose($file);
+
+        return response()->json(['file_path' => $path, 'headers' => $headers]);
+    }
+
+    public function importProcess(Request $request)
+    {
+        $request->validate(['file_path' => 'required|string', 'mapping' => 'required|array']);
+        $userId = Auth::id();
+
+        Cache::put("import_progress_cat_{$userId}", [
+            'status' => 'pending',
+            'current' => 0,
+            'total' => 0,
+            'percentage' => 0,
+            'errors' => []
+        ], 600);
+
+        ImportCategoriesJob::dispatch($request->file_path, $request->mapping, $userId);
+        return response()->json(['status' => 'success']);
+    }
+
+    public function importProgress()
+    {
+        $userId = Auth::id();
+        return response()->json(Cache::get("import_progress_cat_{$userId}") ?? ['status' => 'idle']);
     }
 }

@@ -30,13 +30,14 @@ class ImportMaterialsJob implements ShouldQueue
     public function handle(): void
     {
         $path = Storage::disk('local')->path($this->filePath);
-        
+
         // 1. Hitung total baris untuk kalkulasi persentase progress bar
-        $totalRows = count(file($path)) - 1; 
-        if ($totalRows <= 0) return;
+        $totalRows = count(file($path)) - 1;
+        if ($totalRows <= 0)
+            return;
 
         $file = fopen($path, 'r');
-        
+
         // Baca baris pertama (header) untuk mendapatkan indeks array index kolom
         $headers = fgetcsv($file);
 
@@ -49,14 +50,25 @@ class ImportMaterialsJob implements ShouldQueue
 
             try {
                 // Ambil data berdasarkan indeks kolom hasil mapping dari Vue
-                $name = $row[$this->mapping['name']] ?? null;
-                $categoryName = $row[$this->mapping['category']] ?? null;
-                $publishedAt = $row[$this->mapping['published_at']] ?? null;
-                $description = $row[$this->mapping['description']] ?? null;
+                $nameIndex = isset($this->mapping['name']) ? (int) $this->mapping['name'] : null;
+                $categoryIndex = isset($this->mapping['category']) ? (int) $this->mapping['category'] : null;
+                $publishedAtIndex = isset($this->mapping['published_at']) ? (int) $this->mapping['published_at'] : null;
+                $descriptionIndex = isset($this->mapping['description']) ? (int) $this->mapping['description'] : null;
 
-                // Validasi data minimal wajib di level background
-                if (empty($name)) {
+                // Ambil data dari baris CSV berdasarkan indeks aman
+                $name = ($nameIndex !== null && isset($row[$nameIndex])) ? $row[$nameIndex] : null;
+                $categoryName = ($categoryIndex !== null && isset($row[$categoryIndex])) ? $row[$categoryIndex] : null;
+                $publishedAt = ($publishedAtIndex !== null && isset($row[$publishedAtIndex])) ? $row[$publishedAtIndex] : null;
+                $description = ($descriptionIndex !== null && isset($row[$descriptionIndex])) ? $row[$descriptionIndex] : null;
+
+                // REVISI: Ganti empty() dengan cek null/string kosong agar tidak false-positive pada angka 0
+                if ($name === null || $name === '') {
                     $errors[] = "Baris {$processed}: Nama material tidak boleh kosong.";
+                    continue;
+                }
+
+                if ($categoryName === null || $categoryName === '') {
+                    $errors[] = "Baris {$processed}: Kategori tidak boleh kosong.";
                     continue;
                 }
 
@@ -90,26 +102,26 @@ class ImportMaterialsJob implements ShouldQueue
 
             // 3. Update Progress state ke dalam Cache secara berkala agar Vue bisa memantau
             Cache::put("import_progress_{$this->userId}", [
-                'status'    => 'processing',
-                'current'   => $processed,
-                'total'     => $totalRows,
-                'percentage'=> round(($processed / $totalRows) * 100),
-                'errors'    => $errors
+                'status' => 'processing',
+                'current' => $processed,
+                'total' => $totalRows,
+                'percentage' => round(($processed / $totalRows) * 100),
+                'errors' => $errors
             ], 600); // Bertahan selama 10 menit
         }
 
         fclose($file);
-        
+
         // Hapus file sementara dari storage local server setelah selesai
         Storage::disk('local')->delete($this->filePath);
 
         // 4. Tandai bahwa status background proses telah Selesai
         Cache::put("import_progress_{$this->userId}", [
-            'status'    => 'completed',
-            'current'   => $processed,
-            'total'     => $totalRows,
-            'percentage'=> 100,
-            'errors'    => $errors
+            'status' => 'completed',
+            'current' => $processed,
+            'total' => $totalRows,
+            'percentage' => 100,
+            'errors' => $errors
         ], 600);
     }
 }
