@@ -59,9 +59,7 @@ const handleFileUpload = (event: Event) => {
 };
 
 const submit = () => {
-    form.post(`/materials/${props.material.id}`, {
-        preserveScroll: true
-    });
+    form.put(`/materials/${props.material.id}`);
 };
 </script>
 
