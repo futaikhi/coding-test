@@ -12,34 +12,34 @@ return new class extends Migration
         Schema::create('categories', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('name');
-            $table->boolean('is_active')->default(true); // Syarat: BOOLEAN
-            $table->json('attributes')->nullable();       // Syarat: JSON (Contoh: {"rack": "A1", "temperature": "cool"})
+            $table->boolean('is_active')->default(true); 
+            $table->json('attributes')->nullable();       
             $table->timestamps();
-            $table->softDeletes();                        // Syarat: SOFT DELETES
+            $table->softDeletes();                       
         });
 
         // 2. TABEL MATERIAL (Memenuhi unsur: UUID, DateTime, File Attachment, Relasi ke Kategori)
         Schema::create('materials', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('category_id')->constrained('categories')->onDelete('cascade'); // RELASI MANY-TO-ONE
+            $table->foreignUuid('category_id')->constrained('categories')->onDelete('cascade');
             $table->string('code')->unique();
             $table->string('name');
             $table->text('description')->nullable();
-            $table->string('document_path')->nullable(); // Tempat simpan path file PDF
-            $table->date('published_at');            // Syarat: DATETIME
+            $table->string('document_path')->nullable(); 
+            $table->date('published_at');            
             $table->timestamps();
-            $table->softDeletes();                        // Syarat: SOFT DELETES
+            $table->softDeletes();                       
         });
 
         // 3. TABEL MUTASI STOK (Memenuhi unsur: UUID, Relasi ke Material, Pencatatan Transaksional)
         Schema::create('stock_mutations', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('material_id')->constrained('materials')->onDelete('cascade'); // RELASI MANY-TO-ONE
+            $table->foreignUuid('material_id')->constrained('materials')->onDelete('cascade');
             $table->enum('type', ['in', 'out']);
             $table->integer('quantity');
             $table->text('note')->nullable();
             $table->timestamps();
-            $table->softDeletes();                        // Syarat: SOFT DELETES
+            $table->softDeletes();                        
         });
     }
 
