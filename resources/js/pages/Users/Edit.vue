@@ -60,7 +60,7 @@ const submit = () => form.put(`/users/${props.user.id}`);
                 </div>
                 
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Ubah Pilihan Role (Tags Mode)</label>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Ubah Pilihan Role</label>
                     <Multiselect
                         v-model="form.roles"
                         :options="roleOptions"

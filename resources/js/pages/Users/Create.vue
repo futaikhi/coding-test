@@ -54,7 +54,7 @@ const submit = () => form.post('/users');
                 </div>
                 
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Pilih Multi-Role (Mode Tags)</label>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Pilih Multi-Role</label>
                     <Multiselect
                         v-model="form.roles"
                         :options="roleOptions"
