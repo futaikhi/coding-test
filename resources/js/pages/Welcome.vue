@@ -33,10 +33,6 @@ import { dashboard, login } from '@/routes';
 
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
             <div class="text-center max-w-3xl mx-auto">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 mb-6">
-                    <span class="flex h-2 w-2 rounded-full bg-blue-600 animate-pulse"></span>
-                    Coding Test Project - Ready to Review
-                </span>
                 <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-gray-900 dark:text-white leading-tight mb-6">
                     Sistem Manajemen <br class="hidden sm:inline"/>
                     <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Inventaris & Material</span> Gudang
@@ -44,18 +40,6 @@ import { dashboard, login } from '@/routes';
                 <p class="text-base sm:text-lg text-gray-600 dark:text-gray-400 leading-relaxed mb-8">
                     Aplikasi terintegrasi untuk pengelolaan data stok, pelacakan logistik material, dan penanganan dokumen lampiran. Dibangun dengan fokus penuh pada aspek keamanan, integritas riwayat transaksi, serta performa tinggi.
                 </p>
-                <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-                    <Link v-if="$page.props.auth.user" :href="dashboard()"
-                        class="w-full sm:w-auto text-center rounded-xl bg-blue-600 px-8 py-3.5 text-base font-semibold text-white shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition">
-                        Masuk ke Dashboard →
-                    </Link>
-                    <template v-else>
-                        <Link :href="login()"
-                            class="w-full sm:w-auto text-center rounded-xl bg-blue-600 px-8 py-3.5 text-base font-semibold text-white shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition">
-                            Mulai Demo Aplikasi
-                        </Link>
-                    </template>
-                </div>
             </div>
 
             <div class="mt-24">
